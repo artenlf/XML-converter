@@ -2,7 +2,6 @@
 use std::fs;
 use serde_json::{Value, Map};
 use regex::Regex;
-use rfd::FileDialog;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -153,10 +152,9 @@ fn convert_and_save_xml(input_path: String, save_path: String) -> Result<String,
             .and_then(|v| v.get("InfNfse"))
             .ok_or("Estrutura InfNfse não encontrada")?;
         
-        let empty_object = Value::Object(Map::new());
-        let tomador = inf.get("TomadorServico").unwrap_or(&empty_object);
-        let prestador = inf.get("PrestadorServico").unwrap_or(&empty_object);
-        let servico = inf.get("Servico").unwrap_or(&empty_object);
+        let tomador = inf.get("TomadorServico").unwrap_or(&Value::Object(Map::new()));
+        let prestador = inf.get("PrestadorServico").unwrap_or(&Value::Object(Map::new()));
+        let servico = inf.get("Servico").unwrap_or(&Value::Object(Map::new()));
         
         // Corrigir o número da nota para garantir que seja capturado corretamente (igual ao JS)
         let numero_nota = match inf.get("Numero") {
@@ -301,48 +299,11 @@ fn convert_and_save_xml(input_path: String, save_path: String) -> Result<String,
     Ok(save_path)
 }
 
-#[tauri::command]
-fn convert_xml_content(xml_content: String, _original_file_name: String) -> Result<String, String> {
-    // Parse do XML para JSON
-    let json_value = parse_xml_to_json(&xml_content)?;
-    
-    // Conversão de volta para XML
-    let converted_xml = build_xml_from_json(&json_value);
-    
-    Ok(converted_xml)
-}
-
-#[tauri::command]
-fn convert_and_save_xml_with_dialog(xml_content: String, original_file_name: String) -> Result<String, String> {
-    // Parse do XML para JSON
-    let json_value = parse_xml_to_json(&xml_content)?;
-    
-    // Conversão de volta para XML
-    let converted_xml = build_xml_from_json(&json_value);
-    
-    // Criar nome padrão para o arquivo convertido
-    let default_name = original_file_name.replace(".xml", "-convertido.xml");
-    
-    // Abrir diálogo para salvar
-    let file_path = FileDialog::new()
-        .set_file_name(&default_name)
-        .add_filter("XML Files", &["xml"])
-        .save_file();
-    
-    match file_path {
-        Some(path) => {
-            fs::write(&path, &converted_xml).map_err(|e| e.to_string())?;
-            Ok(path.to_string_lossy().to_string())
-        }
-        None => Err("Operação cancelada pelo usuário".to_string())
-    }
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, convert_and_save_xml, convert_xml_content, convert_and_save_xml_with_dialog])
+        .invoke_handler(tauri::generate_handler![greet, convert_and_save_xml])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
